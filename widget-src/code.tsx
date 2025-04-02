@@ -118,6 +118,7 @@ function connectWidgets(startWidgetId: string, endWidgetId: string) {
 
   connector.connectorStartStrokeCap = "NONE";
   connector.connectorEndStrokeCap = "NONE";
+  connector.connectorLineType = "ELBOWED";
 
   connector.connectorStart = {
     endpointNodeId: startWidgetId,
