@@ -1,8 +1,8 @@
 
 const { widget } = figma;
-const { AutoLayout, Input, SVG, Rectangle, Text, useSyncedState, usePropertyMenu, useWidgetNodeId, useEffect } =
+const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
-import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, CardStatusUI, Link } from './types'
+import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link } from './types'
 import { autoLayout, cascadeLayoutChange, collapse, expand } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
@@ -58,8 +58,8 @@ function ExpandTip({color, widgetId} : { color: string, widgetId: string }) {
   return (
     <AutoLayout hidden={!hideChildren}>
       <AutoLayout
-        onClick={() => {
-          let node = figma.getNodeById(widgetId) as WidgetNode;
+        onClick={async () => {
+          const node = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
           setHeightWOTip(node.height - 18);
           expand(node);
           cascadeLayoutChange(node);
@@ -100,9 +100,9 @@ function DebugInfo() {
   )
 }
 
-function cloneWidget(widgetId: string, syncState: object, xOffset: number, yOffset: number) {
-  var thisWidget = figma.getNodeById(widgetId) as WidgetNode;
-  var newWidget = thisWidget.clone();
+async function cloneWidget(widgetId: string, syncState: object, xOffset: number, yOffset: number) {
+  const thisWidget = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
+  const newWidget = thisWidget.clone();
 
   newWidget.x = thisWidget.x + (xOffset == 0 ? 0 : xOffset + (xOffset > 0 ? thisWidget.width : -thisWidget.width));
   newWidget.y = thisWidget.y + (yOffset == 0 ? 0 : yOffset + (yOffset > 0 ? thisWidget.height : -thisWidget.height));
@@ -114,7 +114,7 @@ function cloneWidget(widgetId: string, syncState: object, xOffset: number, yOffs
 }
 
 function connectWidgets(startWidgetId: string, endWidgetId: string) {
-  var connector = figma.createConnector();
+  const connector = figma.createConnector();
 
   connector.connectorStartStrokeCap = "NONE";
   connector.connectorEndStrokeCap = "NONE";
@@ -148,7 +148,7 @@ function Links() {
   }
 
   function saveLink(key: string, text: string, url: string) {
-    let link: Link = links.filter(l => { return l.key == key })[0];
+    const link: Link = links.filter(l => { return l.key == key })[0];
     link.text = text;
     link.url = url;
     setLinks(links);
@@ -205,7 +205,7 @@ function Links() {
             return (
               <AutoLayout width={'fill-parent'} spacing={8} direction='horizontal' verticalAlignItems='center'
                 onClick={() => {
-                  return new Promise((resolve) => {
+                  return new Promise(() => {
                     figma.showUI(`<script>window.open('${l.url}','_blank')</script>`, { visible: false });
                     setTimeout(figma.closePlugin, 1000);
                   })
@@ -354,8 +354,8 @@ function Widget() {
         propertyName: "status"
       }
     ],
-    ({ propertyName, propertyValue }) => {
-      var thisWidget = figma.getNodeById(widgetId) as WidgetNode;
+    async ({ propertyName, propertyValue }) => {
+      const thisWidget = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
 
       switch (propertyName) {
         case 'cardType':
@@ -363,7 +363,7 @@ function Widget() {
           break;
 
         case "new-left": {
-          let newWidget = cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId }, -100, 0);
+          const newWidget = await cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId }, -100, 0);
           if (parentWidgetId != '') {
             connectWidgets(parentWidgetId, newWidget.id);
           }
@@ -372,7 +372,7 @@ function Widget() {
         }
 
         case 'new-right': {
-          let newWidget = cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId }, 100, 0);
+          const newWidget = await cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId }, 100, 0);
           if (parentWidgetId != '') {
             connectWidgets(parentWidgetId, newWidget.id);
           }
@@ -381,9 +381,9 @@ function Widget() {
         }
 
         case 'new-top': {
-          let newCardType = cartTypeRelations[cardType].parent;
+          const newCardType = cartTypeRelations[cardType].parent;
           if (newCardType != null) {
-            let newWidget = cloneWidget(widgetId, { 'cardType': newCardType }, 0, -50);
+            const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType }, 0, -50);
             connectWidgets(newWidget.id, widgetId);
             setParentWidgetId(newWidget.id);
           }
@@ -392,9 +392,9 @@ function Widget() {
         }
 
         case 'new-bottom': {
-          let newCardType = cartTypeRelations[cardType].child;
+          const newCardType = cartTypeRelations[cardType].child;
           if (newCardType != null) {
-            let newWidget = cloneWidget(widgetId, { 'cardType': newCardType, 'parentWidgetId': widgetId }, 0, 50);
+            const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType, 'parentWidgetId': widgetId }, 0, 50);
             connectWidgets(widgetId, newWidget.id);
           }
           //cascadeLayoutChange(thisWidget);
