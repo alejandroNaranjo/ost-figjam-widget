@@ -329,6 +329,8 @@ async function propagateLayoutType(widget: WidgetNode, newLayoutType: LayoutType
   
   // Propagate down from the root
   await propagateLayoutTypeToChildren(root, newLayoutType);
+
+  cascadeLayoutChange(root, newLayoutType);
 }
 
 function Widget() {
@@ -532,6 +534,7 @@ function Widget() {
 
         case 'auto-layout': {
           autoLayout(thisWidget, layoutType);
+          cascadeLayoutChange(thisWidget, layoutType);
           break;
         }
 
