@@ -1,3 +1,7 @@
+export type LayoutType = "Horizontal" | "Vertical";
+
+export const layoutTypes: LayoutType[] = ["Horizontal", "Vertical"];
+
 export type CardType =
   | "Business Outcome"
   | "Product Outcome"
