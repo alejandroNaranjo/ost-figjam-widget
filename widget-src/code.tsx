@@ -51,7 +51,7 @@ function CardStatusLabel({label, color} : { label: string, color: string }) {
   );
 }
 
-function ExpandTip({color, widgetId} : { color: string, widgetId: string }) {
+function ExpandTip({layoutType, color, widgetId} : { layoutType:LayoutType, color: string, widgetId: string }) {
   const [hideChildren,] = useSyncedState('hideChildren', false);
   const [heightWOTip, setHeightWOTip] = useSyncedState('heightWOTip', 0);
   return (
@@ -61,11 +61,24 @@ function ExpandTip({color, widgetId} : { color: string, widgetId: string }) {
           const node = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
           setHeightWOTip(node.height - 18);
           expand(node);
-          const layoutType = getState<LayoutType>(node, "layoutType");
+          //const layoutType = getState<LayoutType>(node, "layoutType");
           cascadeLayoutChange(node, layoutType);
         }}
-        opacity={0.75} horizontalAlignItems="center" padding={{ top: 2 }} width={24} height={18} fill={color} cornerRadius={{ topLeft: 0, topRight: 0, bottomLeft: 20, bottomRight: 20 }}>
-        <SVG src='<svg xmlns="http://www.w3.org/2000/svg" height="14" width="12" viewBox="0 0 448 512"><!--! Font Awesome Pro 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. --><path fill="#333" d="M201.4 342.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 274.7 86.6 137.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"/></svg>' />
+        opacity={0.75} 
+        horizontalAlignItems={layoutType === 'Vertical' ? 'center' : undefined}
+        verticalAlignItems={layoutType === 'Horizontal' ? 'center' : undefined}
+        padding={layoutType === 'Vertical' ? { top: 2 } : { left: 0 }} 
+        width={layoutType === 'Vertical' ? 24 : 16} 
+        height={layoutType === 'Vertical' ? 18 : 24}
+        fill={color} 
+        cornerRadius={layoutType === 'Vertical' 
+          ? { topLeft: 0, topRight: 0, bottomLeft: 20, bottomRight: 20 }
+          : { topLeft: 0, topRight: 20, bottomLeft: 0, bottomRight: 20 }
+        }>
+        <SVG 
+          src='<svg xmlns="http://www.w3.org/2000/svg" height="14" width="12" viewBox="0 0 448 512"><!--! Font Awesome Pro 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. --><path fill="#333" d="M201.4 342.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 274.7 86.6 137.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"/></svg>' 
+          rotation={layoutType === 'Horizontal' ? 90 : 0}
+        />
       </AutoLayout>
     </AutoLayout>
   );
@@ -349,7 +362,7 @@ function Widget() {
         itemType: "dropdown",
         options: layoutTypes.map((i) => ({ option: i, label: i })),
         selectedOption: layoutType.toString(),
-        tooltip: "OST layout",
+        tooltip: "Layout",
         propertyName: "layoutType",
       },
       {
@@ -407,8 +420,8 @@ function Widget() {
         itemType: "action",
         propertyName: "collapse",
         icon: `
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 448 512">
-          <path fill="#CCC" d="M64 64C46.3 64 32 78.3 32 96V416c0 17.7 14.3 32 32 32H384c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32H64zM0 96C0 60.7 28.7 32 64 32H384c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm235.3 68.7l112 112c6.2 6.2 6.2 16.4 0 22.6s-16.4 6.2-22.6 0L224 198.6 123.3 299.3c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l112-112c6.2-6.2 16.4-6.2 22.6 0z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 448 512">
+        <path fill="#ccc" d="M160 48c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 112L16 160c-8.8 0-16 7.2-16 16s7.2 16 16 16l128 0c8.8 0 16-7.2 16-16l0-128zM16 320c-8.8 0-16 7.2-16 16s7.2 16 16 16l112 0 0 112c0 8.8 7.2 16 16 16s16-7.2 16-16l0-128c0-8.8-7.2-16-16-16L16 320zM320 48c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 128c0 8.8 7.2 16 16 16l128 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-112 0 0-112zM304 320c-8.8 0-16 7.2-16 16l0 128c0 8.8 7.2 16 16 16s16-7.2 16-16l0-112 112 0c8.8 0 16-7.2 16-16s-7.2-16-16-16l-128 0z"/>
         </svg>
         `,
         tooltip: "Collapse"
@@ -418,8 +431,8 @@ function Widget() {
         propertyName: "expand-all",
         tooltip: "Expand all",
         icon: `
-        <svg xmlns="http://www.w3.org/2000/svg"  width="14" height="14"  viewBox="0 0 512 512">
-          <path fill="#CCC" d="M292.7 196.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L480 54.6V160c0 8.8 7.2 16 16 16s16-7.2 16-16V16c0-8.8-7.2-16-16-16H352c-8.8 0-16 7.2-16 16s7.2 16 16 16H457.4L292.7 196.7zM219.3 315.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L32 457.4V352c0-8.8-7.2-16-16-16s-16 7.2-16 16V496c0 8.8 7.2 16 16 16H160c8.8 0 16-7.2 16-16s-7.2-16-16-16H54.6L219.3 315.3z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" height="18" width="18" viewBox="0 0 512 512">
+        <path fill="#ccc" d="M144 32c8.8 0 16 7.2 16 16s-7.2 16-16 16L32 64l0 112c0 8.8-7.2 16-16 16s-16-7.2-16-16L0 48c0-8.8 7.2-16 16-16l128 0zM0 336c0-8.8 7.2-16 16-16s16 7.2 16 16l0 112 112 0c8.8 0 16 7.2 16 16s-7.2 16-16 16L16 480c-8.8 0-16-7.2-16-16L0 336zM432 32c8.8 0 16 7.2 16 16l0 128c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-112L304 64c-8.8 0-16-7.2-16-16s7.2-16 16-16l128 0zM416 336c0-8.8 7.2-16 16-16s16 7.2 16 16l0 128c0 8.8-7.2 16-16 16l-128 0c-8.8 0-16-7.2-16-16s7.2-16 16-16l112 0 0-112z"/>
         </svg>
         `
       },
@@ -575,7 +588,12 @@ function Widget() {
   };
 
   return (
-    <AutoLayout direction="vertical" horizontalAlignItems="center" padding={{ bottom: 4 }}>
+    <AutoLayout 
+      direction={layoutType === 'Vertical' ? 'vertical' : 'horizontal'} 
+      horizontalAlignItems={layoutType === 'Vertical' ? 'center' : undefined}
+      verticalAlignItems={layoutType === 'Horizontal' ? 'center' : undefined}
+      padding={layoutType === 'Vertical' ? { bottom: 4 } : { right: 4 }}
+    >
       <AutoLayout
         width={400}
         height="hug-contents"
@@ -598,7 +616,7 @@ function Widget() {
         <Links />
         {debugMode && <DebugInfo />}
       </AutoLayout>
-      <ExpandTip color={cardColors[cardType]} widgetId={widgetId} />
+      <ExpandTip layoutType={layoutType} color={cardColors[cardType]} widgetId={widgetId} />
     </AutoLayout>
   );
 }
