@@ -2,7 +2,7 @@ const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
 import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes } from './types'
-import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections } from './auto-layout';
+import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, getState } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
   "Business Outcome": "A measurement of business impact.",
@@ -61,7 +61,8 @@ function ExpandTip({color, widgetId} : { color: string, widgetId: string }) {
           const node = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
           setHeightWOTip(node.height - 18);
           expand(node);
-          cascadeLayoutChange(node);
+          const layoutType = getState<LayoutType>(node, "layoutType");
+          cascadeLayoutChange(node, layoutType);
         }}
         opacity={0.75} horizontalAlignItems="center" padding={{ top: 2 }} width={24} height={18} fill={color} cornerRadius={{ topLeft: 0, topRight: 0, bottomLeft: 20, bottomRight: 20 }}>
         <SVG src='<svg xmlns="http://www.w3.org/2000/svg" height="14" width="12" viewBox="0 0 448 512"><!--! Font Awesome Pro 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. --><path fill="#333" d="M201.4 342.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 274.7 86.6 137.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"/></svg>' />
@@ -530,19 +531,19 @@ function Widget() {
         }
 
         case 'auto-layout': {
-          autoLayout(thisWidget);
+          autoLayout(thisWidget, layoutType);
           break;
         }
 
         case 'collapse': {
           collapse(thisWidget);
-          cascadeLayoutChange(thisWidget);
+          cascadeLayoutChange(thisWidget, layoutType);
           break;
         }
 
         case 'expand-all': {
           expand(thisWidget, true);
-          cascadeLayoutChange(thisWidget);
+          cascadeLayoutChange(thisWidget, layoutType);
           break;
         }
 
