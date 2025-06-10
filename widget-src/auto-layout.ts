@@ -151,27 +151,55 @@ async function getBox(widget: WidgetNode, layoutType: LayoutType): Promise<BoxDi
 
 async function moveChildrenByBoxDim(anchor: WidgetNode, layoutType: LayoutType) {
     const children = (await findConnections(anchor)).children;
+    if (children.length === 0) return;
+
     const storedHeight = getState<number>(anchor, "heightWOTip");
+    const storedWidth = getState<number>(anchor, "widthWOTip");
     const widgetHeight = storedHeight ? storedHeight : anchor.height;
-    const y = anchor.y + widgetHeight + margin.vertical;
+    const widgetWidth = storedWidth ? storedWidth : anchor.width;
 
-    const startingX =
-        anchor.x - (await getBox(anchor, layoutType)).xOffset + (children.length > 0 ? (await getBox(children[0].widget, layoutType)).xOffset : 0);
+    if (layoutType === "Vertical") {
+        // Vertical layout: children are arranged horizontally below the parent
+        const y = anchor.y + widgetHeight + margin.vertical;
+        
+        const startingX =
+        anchor.x - (await getBox(anchor, layoutType)).xOffset + (children.length > 0 ? (await getBox(children[0].widget, layoutType)).xOffset : 0);        
 
-    for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        child.widget.y = y;
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            child.widget.y = y;
 
-        if (i == 0) {
-            child.widget.x = startingX; // + selfOffset;
-        } else {
-            const prevChild = children[i - 1];
-            const prevChildBox = await getBox(prevChild.widget, layoutType);
-            const prevChildXRight = prevChild.widget.x - prevChildBox.xOffset + prevChildBox.width;
-
-            child.widget.x = prevChildXRight + margin.horizontal + (await getBox(child.widget, layoutType)).xOffset;
+            if (i == 0) {
+                child.widget.x = startingX;
+            } else {
+                const prevChild = children[i - 1];
+                const prevChildBox = await getBox(prevChild.widget, layoutType);
+                const prevChildXRight = prevChild.widget.x - prevChildBox.xOffset + prevChildBox.width;
+                child.widget.x = prevChildXRight + margin.horizontal + (await getBox(child.widget, layoutType)).xOffset;
+            }
+            moveChildrenByBoxDim(child.widget, layoutType);
         }
-        moveChildrenByBoxDim(child.widget, layoutType);
+    } else {
+        // Horizontal layout: children are arranged vertically to the right of the parent
+        const x = anchor.x + widgetWidth + margin.horizontal;
+
+        const startingY =
+        anchor.y - (await getBox(anchor, layoutType)).yOffset + (children.length > 0 ? (await getBox(children[0].widget, layoutType)).yOffset : 0);
+
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            child.widget.x = x;
+
+            if (i == 0) {
+                child.widget.y = startingY;
+            } else {
+                const prevChild = children[i - 1];
+                const prevChildBox = await getBox(prevChild.widget, layoutType);
+                const prevChildYBottom = prevChild.widget.y - prevChildBox.yOffset + prevChildBox.height;
+                child.widget.y = prevChildYBottom + margin.vertical + (await getBox(child.widget, layoutType)).yOffset;
+            }
+            moveChildrenByBoxDim(child.widget, layoutType);
+        }
     }
 }
 
@@ -201,17 +229,35 @@ export async function expand(widget: WidgetNode, recursive?: boolean) {
 export async function cascadeLayoutChange(widget: WidgetNode, layoutType: LayoutType) {
     const prevBox = await getBox(widget, layoutType);
     const currBox = await updateBox(widget, layoutType);
-    if (prevBox && prevBox.width == currBox.width && prevBox.xOffset == currBox.xOffset) {
-        reposition(widget, layoutType, "down"); // even if the box dimensions don't change, the nodes positions might have been manually
-        return;
-    } else {
-        reposition(widget, layoutType, "down"); // needed coz when expanding anchor, the box changes.
-        reposition(widget, layoutType, "across");
-        reposition(widget, layoutType, "up");
+
+    if (layoutType === "Vertical") {
+        if (prevBox && prevBox.width == currBox.width && prevBox.xOffset == currBox.xOffset){
+            reposition(widget, layoutType, "down"); // even if the box dimensions don't change, the nodes positions might have been manually
+            return;
+        }
+        else{
+            reposition(widget, layoutType, "down");
+            reposition(widget, layoutType, "across");
+            reposition(widget, layoutType, "up");
+        }
+    }
+
+    else{
+        if (prevBox && prevBox.height == currBox.height && prevBox.yOffset == currBox.yOffset){
+            reposition(widget, layoutType, "down"); // even if the box dimensions don't change, the nodes positions might have been manually
+            return;
+        }
+        else{
+            reposition(widget, layoutType, "down");
+            reposition(widget, layoutType, "across");
+            reposition(widget, layoutType, "up");
+        }
     }
 }
 
 async function reposition(widget: WidgetNode, layoutType: LayoutType, direction: "down" | "up" | "across") {
+    const isVertical = layoutType === "Vertical";
+    
     switch (direction) {
         case "down": {
             moveChildrenByBoxDim(widget, layoutType);
@@ -223,36 +269,45 @@ async function reposition(widget: WidgetNode, layoutType: LayoutType, direction:
             if (parents.length <= 0) break;
 
             const siblings = (await findConnections(parents[0].widget)).children;
-            siblings.sort((a, b) => a.widget.x - b.widget.x);
+            // Sort based on layout direction
+            siblings.sort((a, b) => isVertical 
+                ? a.widget.x - b.widget.x 
+                : a.widget.y - b.widget.y
+            );
 
             const self = siblings.find(e => e.widget.id == widget.id);
             if (self == null) throw new Error("Can't find myself in parent's children!");
             const currPos = siblings.indexOf(self);
 
-            // move the ones on the left
+            // move the ones before current
             for (let i = currPos - 1; i >= 0; i--) {
                 const move = siblings[i];
                 const ref = siblings[i + 1];
                 const refBox = await getBox(ref.widget, layoutType);
                 const moveBox = await getBox(move.widget, layoutType);
-                move.widget.x =
-                    ref.widget.x -
-                    refBox.xOffset - // ref box left
-                    margin.horizontal -
-                    moveBox.width +
-                    moveBox.xOffset;
+                
+                if (isVertical) {
+                    move.widget.x = ref.widget.x - refBox.xOffset - margin.horizontal - moveBox.width + moveBox.xOffset;
+                } else {
+                    move.widget.y = ref.widget.y - refBox.yOffset - margin.vertical - moveBox.height + moveBox.yOffset;
+                }
                 moveChildrenByBoxDim(move.widget, layoutType);
             }
-            // move the ones on the right
+
+            // move the ones after current
             for (let i = currPos + 1; i < siblings.length; i++) {
                 const move = siblings[i];
                 const ref = siblings[i - 1];
                 const refBox = await getBox(ref.widget, layoutType);
                 const moveBox = await getBox(move.widget, layoutType);
-                move.widget.x = ref.widget.x - refBox.xOffset + refBox.width + margin.horizontal + moveBox.xOffset;
+                
+                if (isVertical) {
+                    move.widget.x = ref.widget.x - refBox.xOffset + refBox.width + margin.horizontal + moveBox.xOffset;
+                } else {
+                    move.widget.y = ref.widget.y - refBox.yOffset + refBox.height + margin.vertical + moveBox.yOffset;
+                }
                 moveChildrenByBoxDim(move.widget, layoutType);
             }
-
             break;
         }
 
@@ -266,16 +321,23 @@ async function reposition(widget: WidgetNode, layoutType: LayoutType, direction:
             const first = siblings[0];
             const last = siblings[siblings.length - 1];
             const lastBox = await getBox(last.widget, layoutType);
-            const siblingSpread =
-                parentBox.width - (await getBox(first.widget, layoutType)).xOffset - (lastBox.width - lastBox.xOffset - last.widget.width);
-            const parentXOffset = (siblingSpread - parent.widget.width) / 2;
-            parent.widget.x = siblings[0].widget.x + parentXOffset;
+            const firstBox = await getBox(first.widget, layoutType);
+
+            if (isVertical) {
+                const siblingSpread = parentBox.width - firstBox.xOffset - (lastBox.width - lastBox.xOffset - last.widget.width);
+                const parentOffset = (siblingSpread - parent.widget.width) / 2;
+                parent.widget.x = first.widget.x + parentOffset;
+            } else {
+                const siblingSpread = parentBox.height - firstBox.yOffset - (lastBox.height - lastBox.yOffset - last.widget.height);
+                const parentYOffset = (siblingSpread - parent.widget.height) / 2;
+                parent.widget.y = first.widget.y + parentYOffset;
+            }
 
             reposition(parent.widget, layoutType, "across");
             reposition(parent.widget, layoutType, "up");
-
             break;
         }
+        
         default:
             break;
     }
