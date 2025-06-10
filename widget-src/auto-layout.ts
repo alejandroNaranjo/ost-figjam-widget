@@ -30,25 +30,22 @@ export function autoLayout(widget: WidgetNode) {
     reposition(widget, "down");
 }
 
-async function findConnections(widget: WidgetNode): Promise<WidgetConnections> {
+export async function findConnections(widget: WidgetNode): Promise<WidgetConnections> {
     const conns = { widget: widget, parents: [], children: [] } as WidgetConnections;
 
     for (const con of widget.attachedConnectors) {
         const start = con.connectorStart as ConnectorEndpointEndpointNodeIdAndMagnet,
             end = con.connectorEnd as ConnectorEndpointEndpointNodeIdAndMagnet;
-        let near: ConnectorEndpointEndpointNodeIdAndMagnet, far: ConnectorEndpointEndpointNodeIdAndMagnet;
-        if (start.endpointNodeId == widget.id) {
-            near = start;
-            far = end;
+
+        // If this widget is the start of the connector, it's a parent
+        // If this widget is the end of the connector, it's a child
+        if (start.endpointNodeId === widget.id) {
+            const childWidget = await figma.getNodeByIdAsync(end.endpointNodeId) as WidgetNode;
+            conns.children.push({ widget: childWidget, connector: con });
         } else {
-            near = end;
-            far = start;
+            const parentWidget = await figma.getNodeByIdAsync(start.endpointNodeId) as WidgetNode;
+            conns.parents.push({ widget: parentWidget, connector: con });
         }
-
-        const pair = { widget: (await figma.getNodeByIdAsync(far.endpointNodeId)) as WidgetNode, connector: con };
-
-        if (near.magnet == "BOTTOM") conns.children.push(pair);
-        else conns.parents.push(pair);
     }
 
     conns.children.sort((a, b) => a.widget.x - b.widget.x);

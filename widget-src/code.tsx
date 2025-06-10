@@ -2,7 +2,7 @@ const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
 import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes } from './types'
-import { autoLayout, cascadeLayoutChange, collapse, expand } from './auto-layout';
+import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
   "Business Outcome": "A measurement of business impact.",
@@ -282,6 +282,54 @@ async function createSibling(widgetId: string, cardType: CardType, parentWidgetI
   return newWidget;
 }
 
+async function findTopmostParent(widget: WidgetNode): Promise<WidgetNode> {
+  const connections = await findConnections(widget);
+  
+  // If no parents, this is the topmost node
+  if (connections.parents.length === 0) {
+    return widget;
+  }
+  
+  // Otherwise, continue up through the parent
+  return findTopmostParent(connections.parents[0].widget);
+}
+
+async function propagateLayoutTypeToChildren(widget: WidgetNode, newLayoutType: LayoutType, parentConnector?: ConnectorNode): Promise<void> {
+  // Set layout type for current widget using synced state
+  widget.setWidgetSyncedState({
+    ...widget.widgetSyncedState,
+    layoutType: newLayoutType
+  });
+  
+  // Update the connector from parent if it exists
+  if (parentConnector) {
+    // Parent's end connects to current widget
+    const startEndpoint = parentConnector.connectorStart as ConnectorEndpointEndpointNodeIdAndMagnet;
+    parentConnector.connectorStart = {
+      endpointNodeId: startEndpoint.endpointNodeId, // Keep the parent's ID
+      magnet: newLayoutType === 'Horizontal' ? 'RIGHT' : 'BOTTOM'
+    };
+    parentConnector.connectorEnd = {
+      endpointNodeId: widget.id,
+      magnet: newLayoutType === 'Horizontal' ? 'LEFT' : 'TOP'
+    };
+  }
+  
+  // Get children and propagate
+  const connections = await findConnections(widget);
+  for (const child of connections.children) {
+    await propagateLayoutTypeToChildren(child.widget, newLayoutType, child.connector);
+  }
+}
+
+async function propagateLayoutType(widget: WidgetNode, newLayoutType: LayoutType): Promise<void> {
+  // Find the topmost parent
+  const root = await findTopmostParent(widget);
+  
+  // Propagate down from the root
+  await propagateLayoutTypeToChildren(root, newLayoutType);
+}
+
 function Widget() {
   const widgetId = useWidgetNodeId();
   const [cardType, setCardType] = useSyncedState<CardType>("cardType", "Solution");
@@ -415,6 +463,8 @@ function Widget() {
 
         case 'layoutType':
           setLayoutType(propertyValue as LayoutType)
+          // LayoutType is intended to be a tree-wide property, so we need to propagate it to all widgets in the tree
+          await propagateLayoutType(thisWidget, propertyValue as LayoutType);
           break;
 
         case "new-left": {
