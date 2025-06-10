@@ -254,6 +254,34 @@ function Links() {
   )
 }
 
+async function createParent(widgetId: string, cardType: CardType, layoutType: LayoutType, xOffset: number, yOffset: number) {
+  const newCardType = cartTypeRelations[cardType].parent;
+  if (newCardType != null) {
+    const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType, 'layoutType': layoutType }, xOffset, yOffset);
+    connectWidgets(newWidget.id, widgetId, layoutType);
+    return newWidget;
+  }
+  return null;
+}
+
+async function createChild(widgetId: string, cardType: CardType, layoutType: LayoutType, xOffset: number, yOffset: number) {
+  const newCardType = cartTypeRelations[cardType].child;
+  if (newCardType != null) {
+    const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType, 'parentWidgetId': widgetId, 'layoutType': layoutType }, xOffset, yOffset);
+    connectWidgets(widgetId, newWidget.id, layoutType);
+    return newWidget;
+  }
+  return null;
+}
+
+async function createSibling(widgetId: string, cardType: CardType, parentWidgetId: string, layoutType: LayoutType, xOffset: number, yOffset: number) {
+  const newWidget = await cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId, 'layoutType': layoutType }, xOffset, yOffset);
+  if (parentWidgetId != '') {
+    connectWidgets(parentWidgetId, newWidget.id, layoutType);
+  }
+  return newWidget;
+}
+
 function Widget() {
   const widgetId = useWidgetNodeId();
   const [cardType, setCardType] = useSyncedState<CardType>("cardType", "Solution");
@@ -279,22 +307,38 @@ function Widget() {
       {
         itemType: "action",
         propertyName: "new-top",
-        tooltip: "↑"
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 384 512">
+               <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+               <path fill="#CCC" d="M214.6 9.4c-12.5-12.5-32.8-12.5-45.3 0l-128 128c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 109.3 160 480c0 17.7 14.3 32 32 32s32-14.3 32-32l0-370.7 73.4 73.4c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-128-128z"/>
+               </svg>`,
+        tooltip: layoutType === 'Horizontal' ? "Create sibling above" : "Create parent"
       },
       {
         itemType: "action",
         propertyName: "new-bottom",
-        tooltip: "↓"
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 384 512">
+               <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+               <path fill="#CCC" d="M169.4 502.6c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 402.7 224 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 370.7L86.6 329.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128z"/>
+               </svg>`,
+        tooltip: layoutType === 'Horizontal' ? "Create sibling below" : "Create child"
       },
       {
         itemType: "action",
         propertyName: "new-left",
-        tooltip: "<-"
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 512 512">
+               <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+               <path fill="#CCC" d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 288 480 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-370.7 0 73.4-73.4c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-128 128z"/>
+               </svg>`,
+        tooltip: layoutType === 'Horizontal' ? "Create parent" : "Create sibling to the left"
       },
       {
         itemType: "action",
         propertyName: "new-right",
-        tooltip: "->"
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 512 512">
+               <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+               <path fill="#CCC" d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/>
+               </svg>`,
+        tooltip: layoutType === 'Horizontal' ? "Create child" : "Create sibling to the right"
       },
       {
         itemType: "separator"
@@ -374,39 +418,54 @@ function Widget() {
           break;
 
         case "new-left": {
-          const newWidget = await cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId, 'layoutType': layoutType }, -100, 0);
-          if (parentWidgetId != '') {
-            connectWidgets(parentWidgetId, newWidget.id, layoutType);
+          if (layoutType === 'Horizontal') {
+            // Create parent in horizontal layout
+            const newWidget = await createParent(widgetId, cardType, layoutType, -100, 0);
+            if (newWidget) {
+              setParentWidgetId(newWidget.id);
+            }
+          } else {
+            // Create sibling to the left in vertical layout
+            await createSibling(widgetId, cardType, parentWidgetId, layoutType, -100, 0);
           }
           //cascadeLayoutChange(thisWidget);
           break;
         }
 
         case 'new-right': {
-          const newWidget = await cloneWidget(widgetId, { 'cardType': cardType, 'parentWidgetId': parentWidgetId, 'layoutType': layoutType }, 100, 0);
-          if (parentWidgetId != '') {
-            connectWidgets(parentWidgetId, newWidget.id, layoutType);
+          if (layoutType === 'Horizontal') {
+            // Create child in horizontal layout
+            await createChild(widgetId, cardType, layoutType, 100, 0);
+          } else {
+            // Create sibling to the right in vertical layout
+            await createSibling(widgetId, cardType, parentWidgetId, layoutType, 100, 0);
           }
           //cascadeLayoutChange(thisWidget);
           break;
         }
 
         case 'new-top': {
-          const newCardType = cartTypeRelations[cardType].parent;
-          if (newCardType != null) {
-            const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType, 'layoutType': layoutType }, 0, -50);
-            connectWidgets(newWidget.id, widgetId, layoutType);
-            setParentWidgetId(newWidget.id);
+          if (layoutType === 'Horizontal') {
+            // Create sibling above in horizontal layout
+            await createSibling(widgetId, cardType, parentWidgetId, layoutType, 0, -50);
+          } else {
+            // Create parent in vertical layout
+            const newWidget = await createParent(widgetId, cardType, layoutType, 0, -50);
+            if (newWidget) {
+              setParentWidgetId(newWidget.id);
+            }
           }
           //cascadeLayoutChange(thisWidget);
           break;
         }
 
         case 'new-bottom': {
-          const newCardType = cartTypeRelations[cardType].child;
-          if (newCardType != null) {
-            const newWidget = await cloneWidget(widgetId, { 'cardType': newCardType, 'parentWidgetId': widgetId, 'layoutType': layoutType }, 0, 50);
-            connectWidgets(widgetId, newWidget.id, layoutType);
+          if (layoutType === 'Horizontal') {
+            // Create sibling below in horizontal layout
+            await createSibling(widgetId, cardType, parentWidgetId, layoutType, 0, 50);
+          } else {
+            // Create child in vertical layout
+            await createChild(widgetId, cardType, layoutType, 0, 50);
           }
           //cascadeLayoutChange(thisWidget);
           break;
