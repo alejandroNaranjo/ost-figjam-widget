@@ -2,7 +2,7 @@ const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
 import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext } from './types'
-import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, getState } from './auto-layout';
+import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
   "Business Outcome": "A measurement of business impact.",
@@ -53,7 +53,7 @@ function CardStatusLabel({label, color} : { label: string, color: string }) {
 
 function ExpandTip({layoutType, color, widgetId} : { layoutType:LayoutType, color: string, widgetId: string }) {
   const [hideChildren,] = useSyncedState('hideChildren', false);
-  const [heightWOTip, setHeightWOTip] = useSyncedState('heightWOTip', 0);
+  const [, setHeightWOTip] = useSyncedState('heightWOTip', 0);
   return (
     <AutoLayout hidden={!hideChildren}>
       <AutoLayout
@@ -107,8 +107,7 @@ function Note({ cardType } : { cardType:CardType}) {
 }
 
 function DebugInfo() {
-  const [runtimeDebugInfo, setRuntimeDebugInfo] = useSyncedState('runtimeDebugInfo', "");
-  const [box,] = useSyncedState('box', "");
+  const [runtimeDebugInfo, ] = useSyncedState('runtimeDebugInfo', "");
   return (
     <AutoLayout direction="vertical" padding={{ top: 0, right: 20, left: 20, bottom: 20 }}>
       <Text>// DEBUG: {useWidgetNodeId()} //</Text>
@@ -209,7 +208,7 @@ function Links() {
               `}
                   opacity={.4}
                   hoverStyle={{ opacity: 1 }}
-                  onClick={e => { removeLink(l.key) }}
+                  onClick={() => { removeLink(l.key) }}
                 />
               </AutoLayout>
 
@@ -358,7 +357,7 @@ function Widget() {
   const [parentWidgetId, setParentWidgetId] = useSyncedState('parentWidgetId', '');
   const [cardStatus, setCardStatus] = useSyncedState<CardStatusType | string>("cardStatus", "none");
   const [links, setLinks] = useSyncedState<Link[]>("links", []);
-  const [linksInEditing, setLinksInEditing] = useSyncedState('linksInEditing', false);
+  const [, setLinksInEditing] = useSyncedState('linksInEditing', false);
 
 
   usePropertyMenu(
@@ -482,16 +481,17 @@ function Widget() {
           setCardType(propertyValue as CardType);
           break;
 
-        case 'layoutType':
-          const prevLayoutType = layoutType;
-          const currLayoutType = propertyValue as LayoutType;
-          const layoutContext = {
-            previousLayoutType: prevLayoutType,
-            currentLayoutType: currLayoutType
-          };
-          await setLayoutType(currLayoutType);
-          // LayoutType is intended to be a tree-wide property, so we need to propagate it to all widgets in the tree
-          await propagateLayoutType(thisWidget, layoutContext);
+        case 'layoutType': {
+            const prevLayoutType = layoutType;
+            const currLayoutType = propertyValue as LayoutType;
+            const layoutContext = {
+              previousLayoutType: prevLayoutType,
+              currentLayoutType: currLayoutType
+            };
+            await setLayoutType(currLayoutType);
+            // LayoutType is intended to be a tree-wide property, so we need to propagate it to all widgets in the tree
+            await propagateLayoutType(thisWidget, layoutContext);
+          }
           break;
 
         case "new-left": {
