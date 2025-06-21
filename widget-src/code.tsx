@@ -1,7 +1,7 @@
 const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
-import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes } from './types'
+import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext } from './types'
 import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, getState } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
@@ -60,9 +60,13 @@ function ExpandTip({layoutType, color, widgetId} : { layoutType:LayoutType, colo
         onClick={async () => {
           const node = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
           setHeightWOTip(node.height - 18);
-          expand(node);
-          //const layoutType = getState<LayoutType>(node, "layoutType");
-          cascadeLayoutChange(node, layoutType);
+          //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
+          const layoutContext = {
+            previousLayoutType: layoutType,
+            currentLayoutType: layoutType
+          };
+          expand(node, layoutContext);
+          cascadeLayoutChange(node, layoutContext);
         }}
         opacity={0.75} 
         horizontalAlignItems={layoutType === 'Vertical' ? 'center' : undefined}
@@ -296,8 +300,8 @@ async function createSibling(widgetId: string, cardType: CardType, parentWidgetI
   return newWidget;
 }
 
-async function findTopmostParent(widget: WidgetNode): Promise<WidgetNode> {
-  const connections = await findConnections(widget);
+async function findTopmostParent(widget: WidgetNode, layoutContext: LayoutContext): Promise<WidgetNode> {
+  const connections = await findConnections(widget, layoutContext);
   
   // If no parents, this is the topmost node
   if (connections.parents.length === 0) {
@@ -305,14 +309,15 @@ async function findTopmostParent(widget: WidgetNode): Promise<WidgetNode> {
   }
   
   // Otherwise, continue up through the parent
-  return findTopmostParent(connections.parents[0].widget);
+  return findTopmostParent(connections.parents[0].widget, layoutContext);
 }
 
-async function propagateLayoutTypeToChildren(widget: WidgetNode, newLayoutType: LayoutType, parentConnector?: ConnectorNode): Promise<void> {
-  // Set layout type for current widget using synced state
+async function propagateLayoutTypeToChildren(widget: WidgetNode, layoutContext: LayoutContext, parentConnector?: ConnectorNode): Promise<void> {
+  const layoutType = layoutContext.currentLayoutType;
+
   widget.setWidgetSyncedState({
     ...widget.widgetSyncedState,
-    layoutType: newLayoutType
+    layoutType: layoutType
   });
   
   // Update the connector from parent if it exists
@@ -321,29 +326,29 @@ async function propagateLayoutTypeToChildren(widget: WidgetNode, newLayoutType: 
     const startEndpoint = parentConnector.connectorStart as ConnectorEndpointEndpointNodeIdAndMagnet;
     parentConnector.connectorStart = {
       endpointNodeId: startEndpoint.endpointNodeId, // Keep the parent's ID
-      magnet: newLayoutType === 'Vertical' ? 'BOTTOM' : 'RIGHT'
+      magnet: layoutType === 'Vertical' ? 'BOTTOM' : 'RIGHT'
     };
     parentConnector.connectorEnd = {
       endpointNodeId: widget.id,
-      magnet: newLayoutType === 'Vertical' ? 'TOP' : 'LEFT'
+      magnet: layoutType === 'Vertical' ? 'TOP' : 'LEFT'
     };
   }
   
   // Get children and propagate
-  const connections = await findConnections(widget);
+  const connections = await findConnections(widget, layoutContext);
   for (const child of connections.children) {
-    await propagateLayoutTypeToChildren(child.widget, newLayoutType, child.connector);
+    await propagateLayoutTypeToChildren(child.widget, layoutContext, child.connector);
   }
 }
 
-async function propagateLayoutType(widget: WidgetNode, newLayoutType: LayoutType): Promise<void> {
+async function propagateLayoutType(widget: WidgetNode, layoutContext: LayoutContext): Promise<void> {
   // Find the topmost parent
-  const root = await findTopmostParent(widget);
+  const root = await findTopmostParent(widget, layoutContext);
   
   // Propagate down from the root
-  await propagateLayoutTypeToChildren(root, newLayoutType);
+  await propagateLayoutTypeToChildren(root, layoutContext);
 
-  cascadeLayoutChange(root, newLayoutType);
+  await cascadeLayoutChange(root, layoutContext);
 }
 
 function Widget() {
@@ -474,13 +479,19 @@ function Widget() {
 
       switch (propertyName) {
         case 'cardType':
-          setCardType(propertyValue as CardType)
+          setCardType(propertyValue as CardType);
           break;
 
         case 'layoutType':
-          setLayoutType(propertyValue as LayoutType)
+          const prevLayoutType = layoutType;
+          const currLayoutType = propertyValue as LayoutType;
+          const layoutContext = {
+            previousLayoutType: prevLayoutType,
+            currentLayoutType: currLayoutType
+          };
+          await setLayoutType(currLayoutType);
           // LayoutType is intended to be a tree-wide property, so we need to propagate it to all widgets in the tree
-          await propagateLayoutType(thisWidget, propertyValue as LayoutType);
+          await propagateLayoutType(thisWidget, layoutContext);
           break;
 
         case "new-left": {
@@ -547,19 +558,34 @@ function Widget() {
         }
 
         case 'auto-layout': {
-          autoLayout(thisWidget, layoutType);
+          //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
+          const layoutContext = {
+            previousLayoutType: layoutType,
+            currentLayoutType: layoutType
+          };
+          autoLayout(thisWidget, layoutContext);
           break;
         }
 
         case 'collapse': {
-          collapse(thisWidget);
-          cascadeLayoutChange(thisWidget, layoutType);
+          //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
+          const layoutContext = {
+            previousLayoutType: layoutType,
+            currentLayoutType: layoutType
+          };
+          collapse(thisWidget, layoutContext);
+          cascadeLayoutChange(thisWidget, layoutContext);
           break;
         }
 
         case 'expand-all': {
-          expand(thisWidget, true);
-          cascadeLayoutChange(thisWidget, layoutType);
+          //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
+          const layoutContext = {
+            previousLayoutType: layoutType,
+            currentLayoutType: layoutType
+          };
+          expand(thisWidget, layoutContext, true);
+          cascadeLayoutChange(thisWidget, layoutContext);
           break;
         }
 

@@ -2,6 +2,11 @@ export type LayoutType = "Horizontal" | "Vertical";
 
 export const layoutTypes: LayoutType[] = ["Horizontal", "Vertical"];
 
+export interface LayoutContext {
+  previousLayoutType: LayoutType;
+  currentLayoutType: LayoutType;
+}
+
 export type CardType =
   | "Business Outcome"
   | "Product Outcome"
