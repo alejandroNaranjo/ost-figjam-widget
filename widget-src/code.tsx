@@ -106,6 +106,33 @@ function Note({ cardType } : { cardType:CardType}) {
   );
 }
 
+function CategoryInput() {
+  const [category, setCategory] = useSyncedState<string>("category", "");
+  const [showCategory, ] = useSyncedState<boolean>("showCategory", false);
+
+  if (!showCategory) {
+    return null;
+  }
+
+  return (
+    <AutoLayout width="fill-parent" padding={{ left: 20, right: 20, bottom: 20 }}>
+      <Input
+        width="fill-parent"
+        placeholder="Category"
+        value={category}
+        onTextEditEnd={(e) => setCategory(e.characters)}
+        fontSize={12}
+        inputFrameProps={{
+          padding: { top: 8, bottom: 8, left: 12, right: 12 },
+          stroke: "#dddfe4",
+          strokeWidth: 1,
+          cornerRadius: 4,
+        }}
+      />
+    </AutoLayout>
+  );
+}
+
 function DebugInfo() {
   const [runtimeDebugInfo, ] = useSyncedState('runtimeDebugInfo', "");
   return (
@@ -358,6 +385,8 @@ function Widget() {
   const [cardStatus, setCardStatus] = useSyncedState<CardStatusType | string>("cardStatus", "none");
   const [links, setLinks] = useSyncedState<Link[]>("links", []);
   const [, setLinksInEditing] = useSyncedState('linksInEditing', false);
+  const [category, setCategory] = useSyncedState<string>("category", "");
+  const [showCategory, setShowCategory] = useSyncedState<boolean>("showCategory", false);
 
 
   usePropertyMenu(
@@ -439,6 +468,12 @@ function Widget() {
         <path fill="#ccc" d="M144 32c8.8 0 16 7.2 16 16s-7.2 16-16 16L32 64l0 112c0 8.8-7.2 16-16 16s-16-7.2-16-16L0 48c0-8.8 7.2-16 16-16l128 0zM0 336c0-8.8 7.2-16 16-16s16 7.2 16 16l0 112 112 0c8.8 0 16 7.2 16 16s-7.2 16-16 16L16 480c-8.8 0-16-7.2-16-16L0 336zM432 32c8.8 0 16 7.2 16 16l0 128c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-112L304 64c-8.8 0-16-7.2-16-16s7.2-16 16-16l128 0zM416 336c0-8.8 7.2-16 16-16s16 7.2 16 16l0 128c0 8.8-7.2 16-16 16l-128 0c-8.8 0-16-7.2-16-16s7.2-16 16-16l112 0 0-112z"/>
         </svg>
         `
+      },
+      {
+        itemType: "action",
+        propertyName: "toggle-category",
+        tooltip: showCategory ? "Hide Category" : "Show Category",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="18" height="18"><path fill="#CCC" d="M0 48V487.7C0 501.1 10.9 512 24.3 512c5 0 9.9-1.5 14-4.4L192 400 345.7 507.6c4.1 2.9 9 4.4 14 4.4c13.4 0 24.3-10.9 24.3-24.3V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48z"/></svg>`
       },
       {
         itemType: "action",
@@ -589,6 +624,10 @@ function Widget() {
           break;
         }
 
+        case 'toggle-category':
+          setShowCategory(!showCategory);
+          break;
+
         case 'edit-links': {
           if (links.length == 0) {
             links.push({ key: Date.now().toString(), text: "", url: "", inEditing: true } as Link);
@@ -639,6 +678,7 @@ function Widget() {
           <CardTypeLabel label={cardType} fillColor={cardColors[cardType]} />
         }
         <Note cardType={cardType} />
+        <CategoryInput />
         <Links />
         {debugMode && <DebugInfo />}
       </AutoLayout>
