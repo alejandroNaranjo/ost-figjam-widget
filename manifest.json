@@ -1,12 +1,12 @@
 {
-  "name": "Opportunity Solution Tree - OST",
+  "name": "OST-Ale",
   "id": "1539678891263914002",
   "api": "1.0.0",
   "main": "dist/code.js",
   "capabilities": [],
   "enableProposedApi": false,
-  "documentAccess": "dynamic-page",
   "editorType": [
+    "figma",
     "figjam"
   ],
   "containsWidget": true,
@@ -15,5 +15,6 @@
     "allowedDomains": [
       "none"
     ]
-  }
+  },
+  "documentAccess": "dynamic-page"
 }
