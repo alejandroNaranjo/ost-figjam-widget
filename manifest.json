@@ -2,7 +2,7 @@
   "name": "Opportunity Solution Tree - OST",
   "id": "1539678891263914002",
   "api": "1.0.0",
-  "main": "code.js",
+  "main": "widget-src/code.tsx",
   "capabilities": [],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
