@@ -1,16 +1,17 @@
 {
-  "name": "Opportunity Solution Tree",
-  "id": "1228841996961677243",
+  "name": "Opportunity Solution Tree - OST",
+  "id": "1539678891263914002",
   "api": "1.0.0",
-  "main": "dist/code.js",
+  "main": "code.js",
   "capabilities": [],
   "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
   "editorType": [
-    "figma",
     "figjam"
   ],
-  "containsWidget": true,
-  "widgetApi": "1.0.0",
-  "networkAccess": { "allowedDomains": ["none"] },
-  "documentAccess": "dynamic-page"
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ]
+  }
 }
