@@ -2,7 +2,7 @@
   "name": "OST-Ale",
   "id": "1539678891263914002",
   "api": "1.0.0",
-  "main": "widget-src/code.tsx",
+  "main": "dist/code.js",
   "capabilities": [],
   "enableProposedApi": false,
   "editorType": [
@@ -11,10 +11,6 @@
   ],
   "containsWidget": true,
   "widgetApi": "1.0.0",
-  "networkAccess": {
-    "allowedDomains": [
-      "none"
-    ]
-  },
+  "networkAccess": { "allowedDomains": ["none"] },
   "documentAccess": "dynamic-page"
 }

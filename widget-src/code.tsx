@@ -116,7 +116,6 @@ function DebugInfo() {
   )
 }
 
-
 async function cloneWidget(widgetId: string, syncState: object, xOffset: number, yOffset: number) {
   const thisWidget = await figma.getNodeByIdAsync(widgetId) as WidgetNode;
   const newWidget = thisWidget.clone();
@@ -592,12 +591,13 @@ function Widget() {
 
         case 'edit-links': {
           if (links.length == 0) {
-            setLinks([...links, { key: Date.now().toString(), text: "", url: "", inEditing: true } as Link]);
+            links.push({ key: Date.now().toString(), text: "", url: "", inEditing: true } as Link);
           }
+
+          setLinks(links);
           setLinksInEditing(true);
           break;
         }
-
 
         default:
           break;
