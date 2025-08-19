@@ -97,8 +97,3 @@ export type Link = {
   text: string,
   url: string
 }
-
-export type Tag = {
-  key: string,
-  text: string
-}
