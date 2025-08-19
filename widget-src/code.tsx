@@ -1,7 +1,7 @@
 const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
-import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext } from './types'
+import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext, PriorityType, priorityTypes, cardPriorities } from './types'
 import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
@@ -46,6 +46,15 @@ function CardStatusLabel({label, color} : { label: string, color: string }) {
   return (
     <AutoLayout verticalAlignItems="center" spacing={10} padding={{ top: 4, bottom: 0, left: 0, right: 0 }}>
       <Text fontWeight={'bold'} fontSize={14} fill="#666" >{label}</Text>
+      <AutoLayout cornerRadius={100} fill={color} width={10} height={10} />
+    </AutoLayout>
+  );
+}
+
+function CardPriorityLabel({label, color} : { label: string, color: string }) {
+  return (
+    <AutoLayout verticalAlignItems="center" spacing={10} padding={{ top: 4, bottom: 0, left: 0, right: 0 }}>
+      <Text fontWeight={'bold'} fontSize={14} fill="#666" >{label.substring(2)}</Text>
       <AutoLayout cornerRadius={100} fill={color} width={10} height={10} />
     </AutoLayout>
   );
@@ -387,7 +396,7 @@ function Widget() {
   const [, setLinksInEditing] = useSyncedState('linksInEditing', false);
   const [category, setCategory] = useSyncedState<string>("category", "");
   const [showCategory, setShowCategory] = useSyncedState<boolean>("showCategory", false);
-
+  const [priority, setPriority] = useSyncedState<PriorityType | string>("priority", "none");
 
   usePropertyMenu(
     [
@@ -433,7 +442,7 @@ function Widget() {
         propertyName: "new-right",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 512 512">
                <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
-               <path fill="#CCC" d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/>
+               <path fill="#CCC" d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/>
                </svg>`,
         tooltip: layoutType === 'Vertical' ? "Create sibling to the right" : "Create child"
       },
@@ -506,6 +515,17 @@ function Widget() {
         selectedOption: cardStatus,
         tooltip: "Status",
         propertyName: "status"
+      },
+      {
+        itemType: "dropdown",
+        options:
+          [{ option: "none", label: "No priority" }].concat(
+            priorityTypes.map(i => ({ option: i, label: i }))
+          )
+        ,
+        selectedOption: priority,
+        tooltip: "Priority",
+        propertyName: "priority"
       }
     ],
     async ({ propertyName, propertyValue }) => {
@@ -592,6 +612,14 @@ function Widget() {
           break;
         }
 
+        case "priority": {
+          if (propertyValue == 'none')
+            setPriority("none");
+          else
+            setPriority(propertyValue as PriorityType);
+          break;
+        }
+
         case 'auto-layout': {
           //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
           const layoutContext = {
@@ -669,10 +697,13 @@ function Widget() {
         strokeWidth={2}
         effect={shadow}
       >
-        {cardStatus != "none" ?
+        {(cardStatus != "none" || priority != "none") ?
           <AutoLayout verticalAlignItems="center" spacing="auto" width="fill-parent" padding={{ left: 0, top: 0, bottom: 0, right: 20 }} >
             <CardTypeLabel label={cardType} fillColor={cardColors[cardType]} />
-            <CardStatusLabel label={cardStatus} color={cardStatuses[cardStatus as CardStatusType].color} />
+            <AutoLayout spacing={10}>
+              {priority != "none" && <CardPriorityLabel label={priority} color={cardPriorities[priority as PriorityType].color} />}
+              {cardStatus != "none" && <CardStatusLabel label={cardStatus} color={cardStatuses[cardStatus as CardStatusType].color} />}
+            </AutoLayout>
           </AutoLayout>
           :
           <CardTypeLabel label={cardType} fillColor={cardColors[cardType]} />

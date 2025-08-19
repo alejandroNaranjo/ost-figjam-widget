@@ -97,3 +97,30 @@ export type Link = {
   text: string,
   url: string
 }
+
+export type PriorityType =
+  | "1-Essential"
+  | "2-High"
+  | "3-Medium"
+  | "4-Low"
+  | "5-Tiny";
+
+export const priorityTypes: PriorityType[] = [
+  "1-Essential",
+  "2-High",
+  "3-Medium",
+  "4-Low",
+  "5-Tiny"
+];
+
+export interface CardPriorityUI {
+    color: string;
+}
+
+export const cardPriorities: { [p in PriorityType]: CardPriorityUI } = {
+    "1-Essential": { color: "#e13238" },
+    "2-High":      { color: "#ffba00" },
+    "3-Medium":    { color: "#3578e5" },
+    "4-Low":       { color: "#54c7ec" },
+    "5-Tiny":      { color: "#d4d5d8" }
+};
