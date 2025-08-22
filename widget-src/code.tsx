@@ -386,6 +386,69 @@ async function propagateLayoutType(widget: WidgetNode, layoutContext: LayoutCont
   await cascadeLayoutChange(root, layoutContext);
 }
 
+function convertToCsv(data: any[]) {
+  const headers = ['id', 'parentId', 'cardType', 'text', 'category', 'status', 'priority', 'links'];
+  const csvRows = [];
+
+  // Add header row
+  csvRows.push(headers.join(','));
+
+  // Add data rows
+  for (const row of data) {
+    const values = headers.map(header => {
+      const escaped = ('' + row[header]).replace(/"/g, '""');
+      return `"${escaped}"`;
+    });
+    csvRows.push(values.join(','));
+  }
+
+  return csvRows.join('\\n');
+}
+
+async function exportCsv(layoutType: LayoutType) {
+  const allWidgets = figma.currentPage.findAllWithCriteria({ types: ['WIDGET'] });
+  const cardData = [];
+
+  const layoutContext = {
+    previousLayoutType: layoutType,
+    currentLayoutType: layoutType
+  };
+
+  for (const widget of allWidgets) {
+    const state = widget.widgetSyncedState;
+    const connections = await findConnections(widget, layoutContext);
+    const parent = connections.parents.length > 0 ? connections.parents[0].widget.id : '';
+
+    cardData.push({
+      id: widget.id,
+      parentId: parent,
+      cardType: state.cardType || '',
+      text: state.text || '',
+      category: state.category || '',
+      status: state.cardStatus || 'none',
+      priority: state.priority || 'none',
+      links: state.links ? JSON.stringify(state.links) : '[]'
+    });
+  }
+
+  const csv = convertToCsv(cardData);
+  console.log(csv);
+  const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  console.log("Successfully generated file: card-export.csv");
+  figma.showUI(
+    `<script>
+      const link = document.createElement('a');
+      link.href = "${dataUri.replace(/"/g, '&quot;')}";
+      link.download = 'card-export.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      figma.closePlugin();
+    </script>`,
+    { visible: false }
+  );
+}
+
 function Widget() {
   const widgetId = useWidgetNodeId();
   const [cardType, setCardType] = useSyncedState<CardType>("cardType", "Solution");
@@ -490,10 +553,18 @@ function Widget() {
         tooltip: links.length > 0 ? "Edit links" : "Add a link",
         icon: `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" width="18" height="18">
-          <path fill="#CCC" d="M580.3 267.2c56.2-56.2 56.2-147.3 0-203.5C526.8 10.2 440.9 7.3 383.9 57.2l-6.1 5.4c-10 8.7-11 23.9-2.3 33.9s23.9 11 33.9 2.3l6.1-5.4c38-33.2 95.2-31.3 130.9 4.4c37.4 37.4 37.4 98.1 0 135.6L433.1 346.6c-37.4 37.4-98.2 37.4-135.6 0c-35.7-35.7-37.6-92.9-4.4-130.9l4.7-5.4c8.7-10 7.7-25.1-2.3-33.9s-25.1-7.7-33.9 2.3l-4.7 5.4c-49.8 57-46.9 142.9 6.6 196.4c56.2 56.2 147.3 56.2 203.5 0L580.3 267.2zM59.7 244.8C3.5 301 3.5 392.1 59.7 448.2c53.6 53.6 139.5 56.4 196.5 6.5l6.1-5.4c10-8.7 11-23.9 2.3-33.9s-23.9-11-33.9-2.3l-6.1 5.4c-38 33.2-95.2 31.3-130.9-4.4c-37.4-37.4-37.4-98.1 0-135.6L207 165.4c37.4-37.4 98.1-37.4 135.6 0c35.7 35.7 37.6 92.9 4.4 130.9l-5.4 6.1c-8.7 10-7.7 25.1 2.3 33.9s25.1 7.7 33.9-2.3l5.4-6.1c49.9-57 47-142.9-6.5-196.5c-56.2-56.2-147.3-56.2-203.5 0L59.7 244.8z"/>
+          <path fill="#CCC" d="M580.3 267.2c56.2-56.2 56.2-147.3 0-203.5C526.8 10.2 440.9 7.3 383.9 57.2l-6.1 5.4c-10 8.7-11 23.9-2.3 33.9s23.9 11 33.9 2.3l6.1-5.4c38-33.2 95.2-31.3 130.9 4.4c37.4 37.4 37.4 98.1 0 135.6L433.1 346.6c-37.4 37.4-98.2 37.4-135.6 0c-35.7-35.7-37.6-92.9-4.4-130.9l4.7-5.4c8.7-10 7.7-25.1-2.3-33.9s-25.1-7.7-33.9 2.3l-4.7 5.4c-49.8 57-46.9 142.9 6.6 196.4c56.2 56.2 147.3 56.2 203.5 0L580.3 267.2zM59.7 244.8C3.5 301 3.5 392.1 59.7 448.2c53.6 53.6 139.5 56.4 196.5 6.5l6.1-5.4c10-8.7 11-23.9 2.3-33.9s-23.9-11-33.9-2.3l-6.1 5.4c-38 33.2-95.2-31.3-130.9-4.4c-37.4-37.4-37.4-98.1 0-135.6L207 165.4c37.4-37.4 98.1-37.4 135.6 0c35.7 35.7 37.6 92.9 4.4 130.9l-5.4 6.1c-8.7 10-7.7 25.1 2.3 33.9s25.1 7.7 33.9-2.3l5.4-6.1c49.9-57 47-142.9-6.5-196.5c-56.2-56.2-147.3-56.2-203.5 0L59.7 244.8z"/>
         </svg>
         
         `
+      },
+      {
+        itemType: "separator"
+      },
+      {
+        itemType: "action",
+        propertyName: "export_csv",
+        tooltip: "Export all to CSV"
       },
       {
         itemType: "separator"
@@ -663,6 +734,11 @@ function Widget() {
 
           setLinks(links);
           setLinksInEditing(true);
+          break;
+        }
+
+        case 'export_csv': {
+          await exportCsv(layoutType);
           break;
         }
 
