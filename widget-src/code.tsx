@@ -1,7 +1,7 @@
 const { widget } = figma;
 const { AutoLayout, Input, SVG, Text, useSyncedState, usePropertyMenu, useWidgetNodeId } =
   widget;
-import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext, Tag } from './types'
+import { CardType, cardColors, cardTypes, cartTypeRelations, cardStatuses, CardStatusType, Link, LayoutType, layoutTypes, LayoutContext, PriorityType, priorityTypes, cardPriorities } from './types'
 import { autoLayout, cascadeLayoutChange, collapse, expand, findConnections, } from './auto-layout';
 
 const placeholderTexts: { [t in CardType]: string } = {
@@ -46,6 +46,15 @@ function CardStatusLabel({label, color} : { label: string, color: string }) {
   return (
     <AutoLayout verticalAlignItems="center" spacing={10} padding={{ top: 4, bottom: 0, left: 0, right: 0 }}>
       <Text fontWeight={'bold'} fontSize={14} fill="#666" >{label}</Text>
+      <AutoLayout cornerRadius={100} fill={color} width={10} height={10} />
+    </AutoLayout>
+  );
+}
+
+function CardPriorityLabel({label, color} : { label: string, color: string }) {
+  return (
+    <AutoLayout verticalAlignItems="center" spacing={10} padding={{ top: 4, bottom: 0, left: 0, right: 0 }}>
+      <Text fontWeight={'bold'} fontSize={14} fill="#666" >{label.substring(2)}</Text>
       <AutoLayout cornerRadius={100} fill={color} width={10} height={10} />
     </AutoLayout>
   );
@@ -106,131 +115,39 @@ function Note({ cardType } : { cardType:CardType}) {
   );
 }
 
+function CategoryInput() {
+  const [category, setCategory] = useSyncedState<string>("category", "");
+  const [showCategory, ] = useSyncedState<boolean>("showCategory", false);
+
+  if (!showCategory) {
+    return null;
+  }
+
+  return (
+    <AutoLayout width="fill-parent" padding={{ left: 20, right: 20, bottom: 20 }}>
+      <Input
+        width="fill-parent"
+        placeholder="Category"
+        value={category}
+        onTextEditEnd={(e) => setCategory(e.characters)}
+        fontSize={12}
+        inputFrameProps={{
+          padding: { top: 8, bottom: 8, left: 12, right: 12 },
+          stroke: "#dddfe4",
+          strokeWidth: 1,
+          cornerRadius: 4,
+        }}
+      />
+    </AutoLayout>
+  );
+}
+
 function DebugInfo() {
   const [runtimeDebugInfo, ] = useSyncedState('runtimeDebugInfo', "");
   return (
     <AutoLayout direction="vertical" padding={{ top: 0, right: 20, left: 20, bottom: 20 }}>
       <Text>// DEBUG: {useWidgetNodeId()} //</Text>
       <Text>{runtimeDebugInfo}</Text>
-    </AutoLayout>
-  )
-}
-
-function Tags() {
-  const [tags, setTags] = useSyncedState<Tag[]>('tags', []);
-  const [tagsInEditing, setTagsInEditing] = useSyncedState('tagsInEditing', false);
-
-  function addTag() {
-    setTags([...tags, { key: Date.now().toString(), text: "" }]);
-  }
-
-  function removeTag(key: string) {
-    setTags(tags.filter(t => { return t.key != key; }))
-  }
-
-  function saveTag(key: string, text: string) {
-    const newTags = tags.map(t => {
-      if (t.key === key) {
-        return {...t, text: text};
-      }
-      return t;
-    });
-    setTags(newTags);
-  }
-
-  function finishEditing() {
-    setTagsInEditing(false);
-  }
-
-  if (!tagsInEditing && tags.length === 0) {
-    return null;
-  }
-
-  return (
-    <AutoLayout
-      hidden={tags.length <= 0 && !tagsInEditing}
-      width='fill-parent'
-      direction="vertical"
-      padding={{top: 0, left:20, right:20, bottom:20}}
-      spacing={12}
-    >
-      <AutoLayout
-        direction='horizontal'
-        wrap
-        spacing={8}
-        width="fill-parent"
-        verticalAlignItems='center'
-      >
-        {
-          tags.map(t => {
-            if (tagsInEditing) {
-              return (
-                <AutoLayout spacing={8} verticalAlignItems="center" key={t.key}>
-                  <AutoLayout
-                    stroke={"#dddfe4"}
-                    strokeWidth={1}
-                    cornerRadius={4}
-                  >
-                    <Input
-                      placeholder='Tag'
-                      width="hug-contents"
-                      fontSize={12}
-                      onTextEditEnd={(e) => { saveTag(t.key, e.characters) }}
-                      value={t.text}
-                      inputFrameProps={{ padding: { top: 4, left: 8, right: 8, bottom: 4 } }}
-                    />
-                  </AutoLayout>
-                  <SVG src={`
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="12" height="12">
-                    <path fill="#bb4533" d="M170.5 51.6L151.5 80h145l-19-28.4c-1.5-2.2-4-3.6-6.7-3.6H177.1c-2.7 0-5.2 1.3-6.7 3.6zm147-26.6L354.2 80H368h48 8c13.3 0 24 10.7 24 24s-10.7 24-24 24h-8V432c0 44.2-35.8 80-80 80H112c-44.2 0-80-35.8-80-80V128H24c-13.3 0-24-10.7-24-24S10.7 80 24 80h8H80 93.8l36.7-55.1C140.9 9.4 158.4 0 177.1 0h93.7c18.7 0 36.2 9.4 46.6 24.9zM80 128V432c0 17.7 14.3 32 32 32H336c17.7 0 32-14.3 32-32V128H80zm80 64V400c0 8.8-7.2 16-16 16s-16-7.2-16-16V192c0-8.8 7.2-16 16-16s16 7.2 16 16zm80 0V400c0 8.8-7.2 16-16 16s-16-7.2-16-16V192c0-8.8 7.2-16 16-16s16 7.2 16 16zm80 0V400c0 8.8-7.2 16-16 16s-16-7.2-16-16V192c0-8.8 7.2-16 16-16s16 7.2 16 16z"/>
-                  </svg>
-                `}
-                    opacity={.4}
-                    hoverStyle={{ opacity: 1 }}
-                    onClick={() => { removeTag(t.key) }}
-                  />
-                </AutoLayout>
-              )
-            } else {
-              return (
-                <AutoLayout fill="#eee" cornerRadius={4} padding={{top: 4, bottom: 4, left: 8, right: 8}} key={t.key}>
-                  <Text fontSize={12}>{t.text}</Text>
-                </AutoLayout>
-              )
-            }
-          })
-        }
-      </AutoLayout>
-      {
-        tagsInEditing == true &&
-        <AutoLayout width={'fill-parent'} direction='vertical' spacing={20} paddingTop={12}>
-          <AutoLayout width={'fill-parent'} verticalAlignItems='center'
-            onClick={() => { addTag(); }}>
-            <SVG positioning='absolute' y={2} hoverStyle={{ opacity: 0 }} src={`
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="14" height="14">
-              <path fill="#b2b2b2" d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 192H32c-17.7 0-32 14.3-32 32s14.3 32 32 32H224V480c0 17.7 14.3 32 32 32s32-14.3 32-32V288l192 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-192 0 0-192z"/>
-            </svg>
-          `} />
-              <SVG positioning='absolute' y={2} opacity={0} hoverStyle={{ opacity: 1 }} src={`
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="14" height="14">
-              <path fill="#333" d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 192H32c-17.7 0-32 14.3-32 32s14.3 32 32 32H224V480c0 17.7 14.3 32 32 32s32-14.3 32-32V288l192 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-192 0 0-192z"/>
-            </svg>
-          `} />
-            <Text positioning='absolute' x={24} fill={'#b2b2b2'} hoverStyle={{ fill: '#333' }}>Add a tag</Text>
-          </AutoLayout>
-          <AutoLayout
-            fill={'#666'}
-            hoverStyle={{ fill: '#333' }}
-            width={'fill-parent'}
-            cornerRadius={8}
-            padding={10}
-            onClick={() => { finishEditing(); }}
-            horizontalAlignItems={'center'}
-          >
-            <Text fill={'#fff'}>Save</Text>
-          </AutoLayout>
-        </AutoLayout>
-      }
     </AutoLayout>
   )
 }
@@ -477,9 +394,9 @@ function Widget() {
   const [cardStatus, setCardStatus] = useSyncedState<CardStatusType | string>("cardStatus", "none");
   const [links, setLinks] = useSyncedState<Link[]>("links", []);
   const [, setLinksInEditing] = useSyncedState('linksInEditing', false);
-  const [tags, setTags] = useSyncedState<Tag[]>("tags", []);
-  const [, setTagsInEditing] = useSyncedState('tagsInEditing', false);
-
+  const [category, setCategory] = useSyncedState<string>("category", "");
+  const [showCategory, setShowCategory] = useSyncedState<boolean>("showCategory", false);
+  const [priority, setPriority] = useSyncedState<PriorityType | string>("priority", "none");
 
   usePropertyMenu(
     [
@@ -525,7 +442,7 @@ function Widget() {
         propertyName: "new-right",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 512 512">
                <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
-               <path fill="#CCC" d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/>
+               <path fill="#CCC" d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l370.7 0-73.4 73.4c12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z"/>
                </svg>`,
         tooltip: layoutType === 'Vertical' ? "Create sibling to the right" : "Create child"
       },
@@ -563,6 +480,12 @@ function Widget() {
       },
       {
         itemType: "action",
+        propertyName: "toggle-category",
+        tooltip: showCategory ? "Hide Category" : "Show Category",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="18" height="18"><path fill="#CCC" d="M0 48V487.7C0 501.1 10.9 512 24.3 512c5 0 9.9-1.5 14-4.4L192 400 345.7 507.6c4.1 2.9 9 4.4 14 4.4c13.4 0 24.3-10.9 24.3-24.3V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48z"/></svg>`
+      },
+      {
+        itemType: "action",
         propertyName: "edit-links",
         tooltip: links.length > 0 ? "Edit links" : "Add a link",
         icon: `
@@ -571,12 +494,6 @@ function Widget() {
         </svg>
         
         `
-      },
-      {
-        itemType: "action",
-        propertyName: "edit-tags",
-        tooltip: "Tags",
-        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="18" height="18"><path fill="#CCC" d="M345 39.1L471.1 165c4.7 4.7 4.7 12.3 0 17l-191 191c-4.7 4.7-12.3 4.7-17 0L64 274.1c-4.7-4.7-4.7-12.3 0-17l191-191c4.7-4.7 12.3-4.7 17 0zM-2.5 456.4l19.8-59.4c2.3-6.9 8.8-11.7 16.2-11.7h42.7c15.1 0 28.7 8.4 35.5 21.4l21.2 40.2c2.8 5.3 8.5 8.5 14.5 8.5h62.5c7.1 0 13.5-4.2 16.4-10.6l43-94.5c2.1-4.6-.2-10.1-5.1-12.2s-10.9-.2-13 4.6l-39.7 87.2c-2.8 6.1-8.6 9.8-14.8 9.8h-55.9c-7.1 0-13.5-4.2-16.4-10.6l-21.2-40.2c-2.8-5.3-8.5-8.5-14.5-8.5H102c-7.1 0-13.5 4.2-16.4 10.6L64.4 399l-21.2 63.6c-1.2 3.5-4.2 6-7.7 6H16c-8.8 0-16-7.2-16-16c0-5.6 2.9-10.6 7.5-13.6z"/></svg>`
       },
       {
         itemType: "separator"
@@ -598,6 +515,17 @@ function Widget() {
         selectedOption: cardStatus,
         tooltip: "Status",
         propertyName: "status"
+      },
+      {
+        itemType: "dropdown",
+        options:
+          [{ option: "none", label: "No priority" }].concat(
+            priorityTypes.map(i => ({ option: i, label: i }))
+          )
+        ,
+        selectedOption: priority,
+        tooltip: "Priority",
+        propertyName: "priority"
       }
     ],
     async ({ propertyName, propertyValue }) => {
@@ -684,6 +612,14 @@ function Widget() {
           break;
         }
 
+        case "priority": {
+          if (propertyValue == 'none')
+            setPriority("none");
+          else
+            setPriority(propertyValue as PriorityType);
+          break;
+        }
+
         case 'auto-layout': {
           //LayoutType hasn't changed, so the previous and current values in LayoutContext are the same
           const layoutContext = {
@@ -716,19 +652,17 @@ function Widget() {
           break;
         }
 
+        case 'toggle-category':
+          setShowCategory(!showCategory);
+          break;
+
         case 'edit-links': {
           if (links.length == 0) {
-            setLinks([...links, { key: Date.now().toString(), text: "", url: "", inEditing: true } as Link]);
+            links.push({ key: Date.now().toString(), text: "", url: "", inEditing: true } as Link);
           }
-          setLinksInEditing(true);
-          break;
-        }
 
-        case 'edit-tags': {
-          if (tags.length == 0) {
-            setTags([...tags, { key: Date.now().toString(), text: "" }]);
-          }
-          setTagsInEditing(true);
+          setLinks(links);
+          setLinksInEditing(true);
           break;
         }
 
@@ -763,17 +697,20 @@ function Widget() {
         strokeWidth={2}
         effect={shadow}
       >
-        {cardStatus != "none" ?
+        {(cardStatus != "none" || priority != "none") ?
           <AutoLayout verticalAlignItems="center" spacing="auto" width="fill-parent" padding={{ left: 0, top: 0, bottom: 0, right: 20 }} >
             <CardTypeLabel label={cardType} fillColor={cardColors[cardType]} />
-            <CardStatusLabel label={cardStatus} color={cardStatuses[cardStatus as CardStatusType].color} />
+            <AutoLayout spacing={10}>
+              {priority != "none" && <CardPriorityLabel label={priority} color={cardPriorities[priority as PriorityType].color} />}
+              {cardStatus != "none" && <CardStatusLabel label={cardStatus} color={cardStatuses[cardStatus as CardStatusType].color} />}
+            </AutoLayout>
           </AutoLayout>
           :
           <CardTypeLabel label={cardType} fillColor={cardColors[cardType]} />
         }
         <Note cardType={cardType} />
+        <CategoryInput />
         <Links />
-        <Tags />
         {debugMode && <DebugInfo />}
       </AutoLayout>
       <ExpandTip layoutType={layoutType} color={cardColors[cardType]} widgetId={widgetId} />
