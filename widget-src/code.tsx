@@ -432,6 +432,7 @@ async function exportCsv(layoutType: LayoutType) {
   }
 
   const csv = convertToCsv(cardData);
+  console.log(csv);
   const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   console.log("Successfully generated file: card-export.csv");
   figma.showUI(
