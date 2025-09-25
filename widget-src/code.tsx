@@ -405,6 +405,156 @@ function convertToCsv(data: any[]) {
   return csvRows.join('\\n');
 }
 
+function parseCsv(csvData: string): { data: { [key: string]: string }[], errors: string[] } {
+  const lines = csvData.trim().replace(/\r\n/g, '\n').split('\n');
+  const errors: string[] = [];
+  const data: { [key: string]: string }[] = [];
+
+  const headerLine = lines.shift();
+  if (!headerLine) {
+    errors.push("CSV is empty or does not contain a header line.");
+    return { data, errors };
+  }
+  const headers = headerLine.split(',');
+
+  lines.forEach((line, index) => {
+    if (line.trim() === '') {
+      return;
+    }
+    if (!line.startsWith('"') || !line.endsWith('"')) {
+        if (line.trim() === '') return;
+        errors.push(`Skipping malformed CSV line #${index + 2}: ${line}`);
+        return;
+    }
+    const values = line.slice(1, -1).split('","');
+    const unescapedValues = values.map(v => v.replace(/""/g, '"'));
+
+    if (unescapedValues.length !== headers.length) {
+        errors.push(`Skipping line #${index + 2} with incorrect number of values. Expected ${headers.length}, got ${unescapedValues.length}.`);
+        return;
+    }
+
+    const row: { [key: string]: string } = {};
+    headers.forEach((header, i) => {
+      row[header] = unescapedValues[i];
+    });
+    data.push(row);
+  });
+
+  return { data, errors };
+}
+
+async function createWidgetsFromCsv(data: any[], baseWidgetId: string) {
+    const baseWidget = await figma.getNodeByIdAsync(baseWidgetId) as WidgetNode;
+    if (!baseWidget) {
+        figma.notify("Error: Could not find the base widget to clone from.", { error: true });
+        return;
+    }
+
+    const idMap: { [oldId: string]: string } = {};
+    const layoutType = baseWidget.widgetSyncedState.layoutType;
+
+    let creationErrors = 0;
+
+    // Create all widgets
+    for (const row of data) {
+        let links = [];
+        try {
+            if (row.links) {
+                links = JSON.parse(row.links);
+            }
+        } catch (e) {
+            console.error("Error parsing links JSON:", row.links, e);
+            creationErrors++;
+        }
+
+        const syncState = {
+            cardType: row.cardType || 'Solution',
+            text: row.text,
+            category: row.category,
+            cardStatus: row.status || 'none',
+            priority: row.priority || 'none',
+            links: links,
+            layoutType: layoutType,
+        };
+
+        const newWidget = await cloneWidget(baseWidget.id, syncState, 0, 0);
+        idMap[row.id] = newWidget.id;
+    }
+
+    // Connect widgets
+    const allNewWidgets = await Promise.all(Object.values(idMap).map((id: string) => figma.getNodeByIdAsync(id))) as WidgetNode[];
+    for (const row of data) {
+        if (row.parentId && idMap[row.parentId]) {
+            const childId = idMap[row.id];
+            const parentId = idMap[row.parentId];
+            if (childId && parentId) {
+                connectWidgets(parentId, childId, layoutType);
+            }
+        }
+    }
+
+    const rootNodes = allNewWidgets.filter(w => {
+        const oldId = Object.keys(idMap).find(key => idMap[key] === w.id);
+        const rowData = data.find(r => r.id === oldId);
+        return !rowData || !rowData.parentId || !idMap[rowData.parentId];
+    });
+
+    const layoutContext = {
+        previousLayoutType: layoutType,
+        currentLayoutType: layoutType
+    };
+
+    let currentX = baseWidget.x + baseWidget.width + 100;
+    const startY = baseWidget.y;
+    for (const root of rootNodes) {
+        await autoLayout(root, layoutContext);
+        root.x = currentX;
+        root.y = startY;
+        currentX += root.width + 100;
+    }
+
+    let successMessage = `${data.length} cards imported successfully!`;
+    if (creationErrors > 0) {
+        successMessage = `${data.length - creationErrors} cards imported. ${creationErrors} cards had errors in links (see console).`;
+    }
+    figma.notify(successMessage, { timeout: 5000 });
+
+    // We need to close the plugin here, because createWidgetsFromCsv is the last step.
+    figma.closePlugin();
+}
+
+async function importCsv(widgetId: string) {
+  figma.showUI(`
+    <div style="padding: 20px; font-family: sans-serif; display: flex; flex-direction: column; align-items: center;">
+      <h2 style="text-align: center;">Import Cards from CSV</h2>
+      <p style="text-align: center; color: #666;">Paste your CSV data below. The format should match the CSV export.</p>
+      <textarea id="csv-input" style="width: 100%; height: 200px; margin-top: 10px; border-radius: 4px; border: 1px solid #ccc; padding: 8px; font-family: monospace;"></textarea>
+      <button style="margin-top: 20px; padding: 10px 16px; border-radius: 4px; border: none; background-color: #0d99ff; color: white; cursor: pointer; font-size: 14px;" onclick="parent.postMessage({ pluginMessage: { type: 'import-csv', data: document.getElementById('csv-input').value } }, '*')">Import</button>
+    </div>
+  `, { width: 400, height: 350, title: "Import from CSV" });
+
+  figma.ui.onmessage = async (msg) => {
+    if (msg.type === 'import-csv') {
+      const csvData = msg.data;
+      if (csvData) {
+        const { data, errors } = parseCsv(csvData);
+        if (errors.length > 0) {
+            figma.notify(`CSV parsing completed with ${errors.length} errors. See console for details.`, { error: true, timeout: 5000 });
+            errors.forEach(e => console.error(e));
+        }
+        if (data.length > 0) {
+            await createWidgetsFromCsv(data, widgetId);
+        } else {
+            figma.closePlugin();
+        }
+      } else {
+        figma.closePlugin();
+      }
+    }
+  };
+}
+
 async function exportCsv(layoutType: LayoutType) {
   const allWidgets = figma.currentPage.findAllWithCriteria({ types: ['WIDGET'] });
   const cardData = [];
@@ -565,6 +715,11 @@ function Widget() {
         itemType: "action",
         propertyName: "export_csv",
         tooltip: "Export all to CSV"
+      },
+      {
+        itemType: "action",
+        propertyName: "import_csv",
+        tooltip: "Import from CSV"
       },
       {
         itemType: "separator"
@@ -739,6 +894,11 @@ function Widget() {
 
         case 'export_csv': {
           await exportCsv(layoutType);
+          break;
+        }
+
+        case 'import_csv': {
+          await importCsv(widgetId);
           break;
         }
 
